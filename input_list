@@ -1,0 +1,14 @@
+{
+"s4_tv3":"data/Suntreat/s4/res_TV_TV3/raster_list_s4_tv3",
+"s4_tv4":"data/Suntreat/s4/res_TV_TV4/raster_list_s4_tv4",
+"s4_gh3":"data/Suntreat/s4/res_SST_GH3/raster_list_s4_gh3",
+"s4_rv1":"data/Suntreat/s4/res_SST_RV1/raster_list_s4_rv1",
+"s5_tv3":"data/Suntreat/s5/res_splitter_TV_TV3_sq/raster_list_s5_tv3",
+"s5_tv4":"data/Suntreat/s5/res_splitter_TV_TV4_sq/raster_list_s5_tv4",
+"s5_gh3":"data/Suntreat/s5/res_splitter_SST_GH3_sq/raster_list_s5_gh3",
+"s5_rv1":"data/Suntreat/s5/res_splitter_SST_RV1_sq/raster_list_s5_rv1",
+"s6_tv3":"data/Suntreat/s6/tv3_sq/raster_list_s6_tv3",
+"s6_tv4":"data/Suntreat/s6/tv4/raster_list_s6_tv4",
+"s6_gh3":"data/Suntreat/s6/gh3_sq/raster_list_s6_gh3",
+"s6_rv1":"data/Suntreat/s6/rv1_sq/raster_list_s6_rv1"
+}
