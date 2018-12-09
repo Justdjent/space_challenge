@@ -6,6 +6,8 @@ import pandas as pd
 
 from keras.applications import imagenet_utils
 from keras.preprocessing.image import load_img, img_to_array
+from keras.utils import np_utils
+
 from scipy.misc.pilutil import imread
 
 from params import args
@@ -86,6 +88,8 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
 
         for start in range(0, len(filenames), batch_size):
             batch_x = []
+            tangents = []
+            nadirs = []
             weights = []
             end = min(start + batch_size, len(filenames))
             train_batch = filenames[start:end]
@@ -102,6 +106,8 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
                 #     load_img(os.path.join(img_dir, filename), grayscale=False, target_size=(out_size[0], out_size[1])))
                 img = img_to_array(
                     load_img(os.path.join(img_path, "8bit_" + filename['name'].replace('mask', filename['folder']).replace('.tif', '.jpg')), grayscale=False))
+                tangent = np_utils.to_categorical(filename['tangent_label'])
+                nadir = np_utils.to_categorical(filename['nadir_cat_label'])
                 if img.shape[:2] != out_size:
                     img, mask_img = pad_img(img, None, out_size)
                 if args.edges:
@@ -116,16 +122,21 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
                 stacked_img = np.dstack((img, *stacked_channels))
                 batch_x.append(stacked_img)
                 weights.append(filename['weight'])
+                nadirs.append(nadir)
+                tangents.append(tangent)
             batch_x = np.array(batch_x, np.float32)
             batch_x, masks = mask_function.mask_pred(batch_x, train_batch, range(batch_size), img_man_dir,img_auto_dir , aug)
             weights = np.array(weights)
+            nadirs = np.array(nadirs)
+            tangents = np.array(tangents)
             if crop_size is None:
                 # @TODO: Remove hardcoded padding
                 batch_x, masks = pad(batch_x, 1, 0), pad(masks, 1, 0)
             if args.edges:
                 yield batch_x, masks, weights
             else:
-                yield imagenet_utils.preprocess_input(batch_x, mode=args.preprocessing_function), masks, weights
+                yield imagenet_utils.preprocess_input(batch_x, mode=args.preprocessing_function),\
+                      [masks, nadirs, tangents], weights
 
 
 def get_edges(image):

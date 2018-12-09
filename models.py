@@ -7,10 +7,11 @@ from keras.engine.training import Model
 from keras.layers.convolutional import Conv2D, UpSampling2D, Conv2DTranspose
 from keras.layers.core import Activation, SpatialDropout2D
 from keras.layers.merge import concatenate
-from keras.layers import Dense, Multiply, Add, Lambda
+from keras.layers import Dense, Multiply, Add, Lambda, Flatten
 from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import MaxPooling2D
 import keras.backend as K
+
 # from tensorflow.python.keras.models import Sequential
 from keras.models import Sequential
 # from inception_resnet_v2 import InceptionResNetV2
@@ -27,6 +28,7 @@ from resnet50_fixed import ResNet50
 from params import args
 from sel_models.unets import (create_pyramid_features, conv_relu, prediction_fpn_block, conv_bn_relu, decoder_block_no_bn)
 
+
 def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1)):
     conv = Conv2D(filters, (3, 3), padding="same", kernel_initializer="he_normal", strides=strides, name=prefix + "_conv")(prevlayer)
     conv = BatchNormalization(name=prefix + "_bn")(conv)
@@ -38,6 +40,15 @@ def conv_block_simple_no_bn(prevlayer, filters, prefix, strides=(1, 1)):
     conv = Conv2D(filters, (3, 3), padding="same", kernel_initializer="he_normal", strides=strides, name=prefix + "_conv")(prevlayer)
     conv = Activation('relu', name=prefix + "_activation")(conv)
     return conv
+
+
+def classification_branch(prevlayer, prefix, out_number):
+    flat = Flatten()(prevlayer)
+    lin1 = Dense(256, name=prefix + '_dense1', activation='relu')(flat)
+    lin2 = Dense(128, name=prefix + '_dense2', activation='relu')(lin1)
+    result = Dense(out_number, name=prefix + '_output', activation='softmax')(lin2)
+    #x = Multiply()([prevlayer, lin2])
+    return result
 
 
 def cse_block(prevlayer, prefix):
@@ -198,6 +209,7 @@ def get_unet_ddtn_resnet(input_shape):
     model = Model(resnet_base.input, x)
     return model
 
+
 def get_csse_unet_resnet(input_shape):
     resnet_base = ResNet50(input_shape=input_shape, include_top=False)
 
@@ -253,6 +265,66 @@ def get_csse_unet_resnet(input_shape):
     conv10 = SpatialDropout2D(0.2)(conv10)
     x = Conv2D(1, (1, 1), activation="sigmoid", name="prediction")(conv10)
     model = Model(resnet_base.input, x)
+    return model
+
+
+def get_csse_resnet_nt(input_shape):
+    resnet_base = ResNet50(input_shape=input_shape, include_top=False)
+
+    if args.show_summary:
+        resnet_base.summary()
+
+    for l in resnet_base.layers:
+        l.trainable = True
+    conv1 = resnet_base.get_layer("activation_1").output
+    conv1 = csse_block(conv1, "csse_1")
+    resnet_base.get_layer("max_pooling2d_1")(conv1)
+    conv2 = resnet_base.get_layer("activation_10").output
+    conv2 = csse_block(conv2, "csse_10")
+    resnet_base.get_layer("res3a_branch2a")(conv2)
+    conv3 = resnet_base.get_layer("activation_22").output
+    conv3 = csse_block(conv3, "csse_22")
+    nadir_out = classification_branch(conv3, "nadir", 3)
+    tangent_out = classification_branch(conv3, "tangent", 3)
+    resnet_base.get_layer("res4a_branch2a")(conv3)
+    conv4 = resnet_base.get_layer("activation_40").output
+    conv4 = csse_block(conv4, "csse_40")
+    resnet_base.get_layer("res5a_branch2a")(conv4)
+    conv5 = resnet_base.get_layer("activation_49").output
+    conv5 = csse_block(conv5, "csse_49")
+    resnet_base.get_layer("avg_pool")(conv5)
+
+    up6 = concatenate([UpSampling2D()(conv5), conv4], axis=-1)
+    conv6 = conv_block_simple(up6, 256, "conv6_1")
+    conv6 = conv_block_simple(conv6, 256, "conv6_2")
+    conv6 = csse_block(conv6, "csse_6")
+
+    up7 = concatenate([UpSampling2D()(conv6), conv3], axis=-1)
+    conv7 = conv_block_simple(up7, 192, "conv7_1")
+    conv7 = conv_block_simple(conv7, 192, "conv7_2")
+    conv7 = csse_block(conv7, "csse_7")
+
+    up8 = concatenate([UpSampling2D()(conv7), conv2], axis=-1)
+    conv8 = conv_block_simple(up8, 128, "conv8_1")
+    conv8 = conv_block_simple(conv8, 128, "conv8_2")
+    conv8 = csse_block(conv8, "csse_8")
+
+    up9 = concatenate([UpSampling2D()(conv8), conv1], axis=-1)
+    conv9 = conv_block_simple(up9, 64, "conv9_1")
+    conv9 = conv_block_simple(conv9, 64, "conv9_2")
+    conv9 = csse_block(conv9, "csse_9")
+
+    vgg = VGG16(input_shape=input_shape, input_tensor=resnet_base.input, include_top=False)
+    for l in vgg.layers:
+        l.trainable = False
+    vgg_first_conv = vgg.get_layer("block1_conv2").output
+    up10 = concatenate([UpSampling2D()(conv9), resnet_base.input, vgg_first_conv], axis=-1)
+    conv10 = conv_block_simple(up10, 32, "conv10_1")
+    conv10 = conv_block_simple(conv10, 32, "conv10_2")
+    conv10 = csse_block(conv10, "csse_o10")
+    conv10 = SpatialDropout2D(0.2)(conv10)
+    x = Conv2D(1, (1, 1), activation="sigmoid", name="prediction")(conv10)
+    model = Model(resnet_base.input, [x, nadir_out, tangent_out])
     return model
 
 
@@ -669,6 +741,8 @@ def make_model(input_shape):
         return get_unet_ddtn_resnet(input_shape)
     elif network == 'csse_resnet50':
         return get_csse_unet_resnet(input_shape)
+    elif network == 'csse_resnet50_nt':
+        return get_csse_resnet_nt(input_shape)
     elif network == 'hypercolumn_resnet':
         return get_csse_hypercolumn_resnet(input_shape)
     elif network == 'inception_resnet_v2':
