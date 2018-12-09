@@ -101,7 +101,7 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
                 # img = img_to_array(
                 #     load_img(os.path.join(img_dir, filename), grayscale=False, target_size=(out_size[0], out_size[1])))
                 img = img_to_array(
-                    load_img(os.path.join(img_path, filename['name'].replace('mask_', '8bit_Atlanta_nadir7_catid_1030010003D22F00_').replace('.tif', '.jpg')), grayscale=False))
+                    load_img(os.path.join(img_path, "8bit_" + filename['name'].replace('mask', filename['folder']).replace('.tif', '.jpg')), grayscale=False))
                 if img.shape[:2] != out_size:
                     img, mask_img = pad_img(img, None, out_size)
                 if args.edges:

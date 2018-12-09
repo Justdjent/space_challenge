@@ -61,7 +61,17 @@ def jpegs_from_rasters(im_src_dir, mask_dest_dir,
 
 
 if __name__ == '__main__':
-    geojson_path = "data/geojson/spacenet-buildings"
-    masks_path = "data/nadir_7_jpegs/"
-    img_path = "data/Atlanta_nadir7_catid_1030010003D22F00/Pan-Sharpen"
-    jpegs_from_rasters(img_path, masks_path, verbose=True)
+    root_fldr = "data/test/SpaceNet-Off-Nadir_Test_Public"
+    fldrs = []
+    for i in os.listdir(root_fldr):
+        if i.startswith('Atlanta') and os.path.isdir(os.path.join(root_fldr, i)):
+            fldrs.append(i)
+
+    for folder in fldrs:
+        # geojson_path = "data/train/geojson/spacenet-buildings"
+        masks_path = os.path.join(root_fldr, folder, "jpegs")
+        img_path = os.path.join(root_fldr, folder, "Pan-Sharpen")# "data/Atlanta_nadir7_catid_1030010003D22F00/Pan-Sharpen"
+        # masks_from_geojsons(geojson_path, img_path, masks_path, verbose=True)
+        # masks_path = "data/nadir_7_jpegs/"
+        # img_path = "data/Atlanta_nadir7_catid_1030010003D22F00/Pan-Sharpen"
+        jpegs_from_rasters(img_path, masks_path, verbose=True)

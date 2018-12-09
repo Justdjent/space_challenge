@@ -32,7 +32,7 @@ def main():
     # auto_val_data_dir = os.path.join(args.auto_dataset_dir, args.val_data_dir_name)
     # man_mask
     config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 0.5
+    config.gpu_options.per_process_gpu_memory_fraction = 1
     set_session(tf.Session(config=config))
     # mask_dir = 'data/train/masks_fail'
     # val_mask_dir = 'data/val/masks'
