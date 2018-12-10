@@ -106,8 +106,8 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
                 #     load_img(os.path.join(img_dir, filename), grayscale=False, target_size=(out_size[0], out_size[1])))
                 img = img_to_array(
                     load_img(os.path.join(img_path, "8bit_" + filename['name'].replace('mask', filename['folder']).replace('.tif', '.jpg')), grayscale=False))
-                tangent = np_utils.to_categorical(filename['tangent_label'])
-                nadir = np_utils.to_categorical(filename['nadir_cat_label'])
+                tangent = np_utils.to_categorical(filename['tangent_label'], 3)
+                nadir = np_utils.to_categorical(filename['nadir_cat_label'], 3)
                 if img.shape[:2] != out_size:
                     img, mask_img = pad_img(img, None, out_size)
                 if args.edges:
@@ -136,7 +136,7 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
                 yield batch_x, masks, weights
             else:
                 yield imagenet_utils.preprocess_input(batch_x, mode=args.preprocessing_function),\
-                      [masks, nadirs, tangents], weights
+                      [masks, nadirs, tangents]#, weights
 
 
 def get_edges(image):

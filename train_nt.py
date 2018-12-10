@@ -123,7 +123,7 @@ def main():
     callbacks = [best_model,
                  EarlyStopping(patience=45, verbose=10),
                  TensorBoard(log_dir='./logs', histogram_freq=0, write_graph=True, write_images=True),
-                 ReduceLROnPlateau(monitor='val_dice_coef', mode='max', factor=0.2, patience=5, min_lr=0.00001,
+                 ReduceLROnPlateau(monitor='val_prediction_dice_coef', mode='max', factor=0.2, patience=5, min_lr=0.00001,
                                    verbose=1)]
     if args.clr is not None:
         clr_params = args.clr.split(',')

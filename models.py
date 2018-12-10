@@ -5,21 +5,21 @@ from keras.layers import Input as Input_from_layers
 
 from keras.engine.training import Model
 from keras.layers.convolutional import Conv2D, UpSampling2D, Conv2DTranspose
-from keras.layers.core import Activation, SpatialDropout2D
+from keras.layers.core import Activation, SpatialDropout2D, Dropout
 from keras.layers.merge import concatenate
 from keras.layers import Dense, Multiply, Add, Lambda, Flatten
 from keras.layers.normalization import BatchNormalization
-from keras.layers.pooling import MaxPooling2D
+from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 import keras.backend as K
 
 # from tensorflow.python.keras.models import Sequential
 from keras.models import Sequential
 # from inception_resnet_v2 import InceptionResNetV2
 # from mobile_net_fixed import MobileNet
-from ddtn.transformers.construct_localization_net import get_loc_net, get_loc_net_func
-from ddtn.transformers.transformer_util import get_keras_layer
-from ddtn.data.mnist_getter import get_mnist_distorted
-from ddtn.helper.training_logger import KerasTrainingLogger
+# from ddtn.transformers.construct_localization_net import get_loc_net, get_loc_net_func
+# from ddtn.transformers.transformer_util import get_keras_layer
+# from ddtn.data.mnist_getter import get_mnist_distorted
+# from ddtn.helper.training_logger import KerasTrainingLogger
 
 #from tensorflow.python.keras.layers import InputLayer #  Dense, Conv2D,
 
@@ -43,10 +43,12 @@ def conv_block_simple_no_bn(prevlayer, filters, prefix, strides=(1, 1)):
 
 
 def classification_branch(prevlayer, prefix, out_number):
-    flat = Flatten()(prevlayer)
-    lin1 = Dense(256, name=prefix + '_dense1', activation='relu')(flat)
-    lin2 = Dense(128, name=prefix + '_dense2', activation='relu')(lin1)
-    result = Dense(out_number, name=prefix + '_output', activation='softmax')(lin2)
+    pool = AveragePooling2D(pool_size=(16, 16), padding='valid')(prevlayer)
+    flat = Flatten()(pool)
+    lin1 = Dense(128, name=prefix + '_dense1', activation='relu')(flat)
+    lin2 = Dense(64, name=prefix + '_dense2', activation='relu')(lin1)
+    drop = Dropout(0.5)(lin2)
+    result = Dense(out_number, name=prefix + '_output', activation='softmax')(drop)
     #x = Multiply()([prevlayer, lin2])
     return result
 
