@@ -45,7 +45,7 @@ def main():
 
     best_model_file =\
         '{}/{}{}loss-{}-fold_{}-{}{:.6f}'.format(args.models_dir, args.network, formatted_net_alias, args.loss_function, args.fold, args.input_width, args.learning_rate) +\
-        '-{epoch:d}-{val_loss:0.7f}-{val_dice_coef:0.7f}-{val_dice_coef_clipped:0.7f}.h5'
+        '-{epoch:d}-{val_prediction_loss:0.7f}-{val_prediction_dice_coef:0.7f}-{val_prediction_dice_coef_clipped:0.7f}-{val_nadir_output_acc:0.7f}-{val_tangent_output_acc:0.7f}.h5'
     if args.edges:
         ch = 3
     else:
@@ -114,7 +114,7 @@ def main():
         aug=False
     )
 
-    best_model = ModelCheckpoint(best_model_file, monitor='val_dice_coef',
+    best_model = ModelCheckpoint(best_model_file, monitor='val_prediction_dice_coef',
                                                   verbose=1,
                                                   save_best_only=True,
                                                   save_weights_only=True,

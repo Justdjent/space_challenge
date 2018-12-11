@@ -16,18 +16,18 @@ import keras.backend as K
 from keras.models import Sequential
 # from inception_resnet_v2 import InceptionResNetV2
 # from mobile_net_fixed import MobileNet
-# from ddtn.transformers.construct_localization_net import get_loc_net, get_loc_net_func
-# from ddtn.transformers.transformer_util import get_keras_layer
-# from ddtn.data.mnist_getter import get_mnist_distorted
-# from ddtn.helper.training_logger import KerasTrainingLogger
+from ddtn.transformers.construct_localization_net import get_loc_net, get_loc_net_func
+from ddtn.transformers.transformer_util import get_keras_layer
+from ddtn.transformers.keras_layers import Round
+from ddtn.data.mnist_getter import get_mnist_distorted
+from ddtn.helper.training_logger import KerasTrainingLogger
 
 #from tensorflow.python.keras.layers import InputLayer #  Dense, Conv2D,
 
 
-from resnet50_fixed import ResNet50
+from resnet50_fixed import ResNet50, conv_block, identity_block
 from params import args
 from sel_models.unets import (create_pyramid_features, conv_relu, prediction_fpn_block, conv_bn_relu, decoder_block_no_bn)
-
 
 def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1)):
     conv = Conv2D(filters, (3, 3), padding="same", kernel_initializer="he_normal", strides=strides, name=prefix + "_conv")(prevlayer)
@@ -43,7 +43,21 @@ def conv_block_simple_no_bn(prevlayer, filters, prefix, strides=(1, 1)):
 
 
 def classification_branch(prevlayer, prefix, out_number):
-    pool = AveragePooling2D(pool_size=(16, 16), padding='valid')(prevlayer)
+
+    # conv1 = conv_block_simple(prevlayer, 128, prefix + 'conv1')
+    #conv2 = conv_block_simple(conv1, 192, prefix + 'conv2')
+    # conv3 = Conv2D(10, (1, 1), padding="same", kernel_initializer="he_normal", activation='relu',
+    #                strides=(3, 3), name=prefix + "_conv")(conv1)
+    x = BatchNormalization(axis=1, name=prefix + 'bn_conv1')(prevlayer)
+    x = Activation('relu')(x)
+    x = MaxPooling2D((3, 3), strides=(2, 2), padding="same")(x)
+
+    x = conv_block(x, 3, [64, 64, 256], stage=2, block=prefix + 'a', strides=(1, 1))
+    x = identity_block(x, 3, [64, 64, 256], stage=2, block=prefix + 'b')
+    x = identity_block(x, 3, [64, 64, 256], stage=2, block=prefix +'c')
+    conv_red = Conv2D(10, (1, 1), padding="same", kernel_initializer="he_normal", activation='relu',
+                   strides=(3, 3), name=prefix + "_conv")(x)
+    pool = AveragePooling2D(pool_size=(16, 16), padding='valid')(conv_red)
     flat = Flatten()(pool)
     lin1 = Dense(128, name=prefix + '_dense1', activation='relu')(flat)
     lin2 = Dense(64, name=prefix + '_dense2', activation='relu')(lin1)
@@ -51,6 +65,18 @@ def classification_branch(prevlayer, prefix, out_number):
     result = Dense(out_number, name=prefix + '_output', activation='softmax')(drop)
     #x = Multiply()([prevlayer, lin2])
     return result
+
+
+def transformation_branch(weights, prevlayer, prefix):
+    round_out = Round()(weights)
+    transformed_image_1 = transformer_block(prevlayer)
+    transformed_image_2 = transformer_block(prevlayer)
+    transformed_image_3 = transformer_block(prevlayer)
+    transformed_image_1 = Lambda(lambda x: x * round_out[:, 0])(transformed_image_1)
+    transformed_image_2 = Lambda(lambda x: x * round_out[:, 0])(transformed_image_2)
+    transformed_image_3 = Lambda(lambda x: x * round_out[:, 0])(transformed_image_3)
+    x = Add(name=prefix + "add")([transformed_image_1, transformed_image_2, transformed_image_3])
+    return x
 
 
 def cse_block(prevlayer, prefix):
@@ -92,7 +118,8 @@ def create_transformer_model(input_shape):
     return transformer_model
 
 
-def transformer_block(prev_layer, input_shape):
+def transformer_block(prev_layer):
+    input_shape = prev_layer.output_shape
     loc_net = get_loc_net(input_shape=input_shape,
                           transformer_name=args.transformer_type)
     transformer_layer = get_keras_layer(args.transformer_type)
@@ -105,8 +132,6 @@ Uses caffe preprocessing function
 """
 
 def get_unet_resnet(input_shape):
-    # model.add(Convolution2D(64, 3, 3, activation='relu'))
-    # resh_conv = Conv2D()
     resnet_base = ResNet50(input_shape=input_shape, include_top=False)
 
     if args.show_summary:
@@ -280,14 +305,14 @@ def get_csse_resnet_nt(input_shape):
         l.trainable = True
     conv1 = resnet_base.get_layer("activation_1").output
     conv1 = csse_block(conv1, "csse_1")
+    nadir_out = classification_branch(conv1, "nadir", 3)
+    tangent_out = classification_branch(conv1, "tangent", 3)
     resnet_base.get_layer("max_pooling2d_1")(conv1)
     conv2 = resnet_base.get_layer("activation_10").output
     conv2 = csse_block(conv2, "csse_10")
     resnet_base.get_layer("res3a_branch2a")(conv2)
     conv3 = resnet_base.get_layer("activation_22").output
     conv3 = csse_block(conv3, "csse_22")
-    nadir_out = classification_branch(conv3, "nadir", 3)
-    tangent_out = classification_branch(conv3, "tangent", 3)
     resnet_base.get_layer("res4a_branch2a")(conv3)
     conv4 = resnet_base.get_layer("activation_40").output
     conv4 = csse_block(conv4, "csse_40")

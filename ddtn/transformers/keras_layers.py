@@ -8,6 +8,8 @@ Created on Mon May 14 14:35:01 2018
 #%%
 # from tensorflow.python.keras._impl.keras.layers.core import Layer
 from keras.engine.topology import Layer
+import keras.backend as K
+
 
 from ddtn.transformers.transformer_layers import ST_Affine_transformer
 from ddtn.transformers.transformer_layers import ST_Affinediffeo_transformer
@@ -137,8 +139,20 @@ class SpatialTPSBatchLayer(BaseTransformerLayer):
         theta = self.locnet.call(X)
         output = ST_TPS_transformer_batch(X, theta, self.output_size)
         return output
- 
-    
+
+
+class Round(Layer):
+    def __init__(self, **kwargs):
+        super(Round, self).__init__(**kwargs)
+
+    def get_output(self, train=False):
+        X = self.get_input(train)
+        return K.round(X)
+
+    def get_config(self):
+        config = {"name": self.__class__.__name__}
+        base_config = super(Round, self).get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 #%%
 if __name__ == '__main__':
     from ddtn.transformers.construct_localization_net import get_loc_net
