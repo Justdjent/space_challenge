@@ -7,11 +7,11 @@ from keras.engine.training import Model
 from keras.layers.convolutional import Conv2D, UpSampling2D, Conv2DTranspose
 from keras.layers.core import Activation, SpatialDropout2D, Dropout
 from keras.layers.merge import concatenate
-from keras.layers import Dense, Multiply, Add, Lambda, Flatten
+from keras.layers import Dense, Multiply, Add, Lambda, Flatten, Dot
 from keras.layers.normalization import BatchNormalization
 from keras.layers.pooling import MaxPooling2D, AveragePooling2D
 import keras.backend as K
-
+from keras.layers import multiply
 # from tensorflow.python.keras.models import Sequential
 from keras.models import Sequential
 # from inception_resnet_v2 import InceptionResNetV2
@@ -51,10 +51,11 @@ def classification_branch(prevlayer, prefix, out_number):
     x = BatchNormalization(axis=1, name=prefix + 'bn_conv1')(prevlayer)
     x = Activation('relu')(x)
     x = MaxPooling2D((3, 3), strides=(2, 2), padding="same")(x)
-
+    x = csse_block(x, prefix + "csse_classification_1")
     x = conv_block(x, 3, [64, 64, 256], stage=2, block=prefix + 'a', strides=(1, 1))
     x = identity_block(x, 3, [64, 64, 256], stage=2, block=prefix + 'b')
     x = identity_block(x, 3, [64, 64, 256], stage=2, block=prefix +'c')
+    x = csse_block(x, prefix + "csse_classification_2")
     conv_red = Conv2D(10, (1, 1), padding="same", kernel_initializer="he_normal", activation='relu',
                    strides=(3, 3), name=prefix + "_conv")(x)
     pool = AveragePooling2D(pool_size=(16, 16), padding='valid')(conv_red)
@@ -72,9 +73,30 @@ def transformation_branch(weights, prevlayer, prefix):
     transformed_image_1 = transformer_block(prevlayer)
     transformed_image_2 = transformer_block(prevlayer)
     transformed_image_3 = transformer_block(prevlayer)
-    transformed_image_1 = Lambda(lambda x: x * round_out[:, 0])(transformed_image_1)
-    transformed_image_2 = Lambda(lambda x: x * round_out[:, 0])(transformed_image_2)
-    transformed_image_3 = Lambda(lambda x: x * round_out[:, 0])(transformed_image_3)
+
+    round_out_1 = Lambda(lambda x: x[:, 0])(round_out)
+    round_out_2 = Lambda(lambda x: x[:, 1])(round_out)
+    round_out_3 = Lambda(lambda x: x[:, 2])(round_out)
+    transformed_image_1 = Multiply(name=prefix + "_mul1")([round_out_1, transformed_image_1])
+    transformed_image_2 = Multiply(name=prefix + "_mul2")([round_out_2, transformed_image_2])
+    transformed_image_3 = Multiply(name=prefix + "_mul3")([round_out_3, transformed_image_3])
+
+    # transformed_image_1 = transformed_image_1 * round_out_1
+    # transformed_image_2 = transformed_image_2 * round_out_2
+    # transformed_image_3 = transformed_image_3 * round_out_3
+    # transformed_image_1 = multiply([round_out[:, 0], transformed_image_1], name=prefix + "_mul1")
+    # transformed_image_2 = multiply([round_out[:, 1], transformed_image_2], name=prefix + "_mul2")
+    # transformed_image_3 = multiply([round_out[:, 2], transformed_image_3], name=prefix + "_mul3")
+    # transformed_image_1 = Lambda(lambda x: multiply([x, transformed_image_1], name=prefix + "_mul1"))(round_out[:, 0])
+    # transformed_image_2 = Lambda(lambda x: multiply([x, transformed_image_2], name=prefix + "_mul1"))(round_out[:, 1])
+    # transformed_image_3 = Lambda(lambda x: multiply([x, transformed_image_3], name=prefix + "_mul1"))(round_out[:, 2])
+    # transformed_image_1 = Merge(mode='mul')([round_out[:, 0], transformed_image_1])
+    # transformed_image_2 = Merge(mode='mul')([round_out[:, 1], transformed_image_2])
+    # transformed_image_3 = Merge(mode='mul')([round_out[:, 2], transformed_image_3])
+    #K.dot(A, B)
+    # transformed_image_1 = Lambda(lambda x: x * round_out[:, 0][0])(transformed_image_1)
+    # transformed_image_2 = Lambda(lambda x: x * round_out[:, 1][0])(transformed_image_2)
+    # transformed_image_3 = Lambda(lambda x: x * round_out[:, 2][0])(transformed_image_3)
     x = Add(name=prefix + "add")([transformed_image_1, transformed_image_2, transformed_image_3])
     return x
 
@@ -119,7 +141,7 @@ def create_transformer_model(input_shape):
 
 
 def transformer_block(prev_layer):
-    input_shape = prev_layer.output_shape
+    input_shape = K.int_shape(prev_layer)[1:]
     loc_net = get_loc_net(input_shape=input_shape,
                           transformer_name=args.transformer_type)
     transformer_layer = get_keras_layer(args.transformer_type)
@@ -307,6 +329,10 @@ def get_csse_resnet_nt(input_shape):
     conv1 = csse_block(conv1, "csse_1")
     nadir_out = classification_branch(conv1, "nadir", 3)
     tangent_out = classification_branch(conv1, "tangent", 3)
+    conv1 = transformation_branch(nadir_out, conv1, "nadir_transform")
+    conv1 = transformation_branch(tangent_out, conv1, "tangent_transform")
+    # conv1 = transformer_block(conv1)
+
     resnet_base.get_layer("max_pooling2d_1")(conv1)
     conv2 = resnet_base.get_layer("activation_10").output
     conv2 = csse_block(conv2, "csse_10")
