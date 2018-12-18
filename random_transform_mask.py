@@ -381,9 +381,9 @@ def random_transform_two_masks(x,
 # vertical_flip=True)
 def strong_aug(p=0.5):
     return Compose([
-        RandomRotate90(),
-        Flip(),
-        Transpose(),
+        #RandomRotate90(),
+        #Flip(),
+        #Transpose(),
         OneOf([
             IAAAdditiveGaussianNoise(),
             GaussNoise(),
@@ -393,7 +393,7 @@ def strong_aug(p=0.5):
             MedianBlur(blur_limit=3, p=0.1),
             Blur(blur_limit=3, p=0.1),
         ], p=0.2),
-        ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=45, p=0.2),
+        ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=3, p=0.2),
         OneOf([
             OpticalDistortion(p=0.3),
             GridDistortion(p=0.1),
@@ -408,3 +408,90 @@ def strong_aug(p=0.5):
         ], p=0.3),
         HueSaturationValue(p=0.3),
     ], p=p)
+
+def tiles_with_overlap(img, window_size, overlap):
+    sp = []
+    matrices = []
+    pnt_step = int(window_size * overlap)
+    step_h = img.shape[1]//pnt_step
+    step_w = img.shape[0]//pnt_step
+    # print(step_h, step_w)
+    pointerh_min = 0
+    for h in range(step_h + 1):
+        if h != 0:
+            pointerh_min += pnt_step
+        pointerh = min(pointerh_min, img.shape[1])
+        pointerh_max = pointerh_min + window_size
+        pointerh_max = min(pointerh_min + window_size, img.shape[1])
+        pointerw_min = 0
+        if pointerh == pointerh_max:
+                #print("hi")
+                continue
+        for w in range(step_w + 1):
+            if w != 0:
+                pointerw_min += pnt_step
+            pointerw = min(pointerw_min, img.shape[0])
+            pointerw_max = pointerw_min + window_size
+            pointerw_max = min(pointerw_min + window_size, img.shape[0])
+            if pointerw == pointerw_max:
+                #print("hi")
+                continue
+            else:
+                # print((pointerh, pointerh_max), (pointerw, pointerw_max))
+                sp.append([pointerh, pointerh_max, pointerw, pointerw_max])
+                # matrices.append(img[pointerh:pointerh_max, pointerw:pointerw_max])
+                matrices.append(img[pointerw:pointerw_max, pointerh:pointerh_max])
+                # print(img[pointerh:pointerh_max, pointerw:pointerw_max].shape)
+    return matrices, sp
+
+def pad(img, shape):#pad_size=32):
+    """
+    Load image from a given path and pad it on the sides, so that eash side is divisible by 32 (network requirement)
+    if pad = True:
+        returns image as numpy.array, tuple with padding in pixels as(x_min_pad, y_min_pad, x_max_pad, y_max_pad)
+    else:
+        returns image as numpy.array
+    """
+
+    if shape == 0:
+        return img
+    pad_shape = np.int16(np.ceil((np.array(shape) - np.array(img.shape[:2]))))
+    height, width = img.shape[:2]
+
+    # if height % shape == 0:
+    #     y_min_pad = 0
+    #     y_max_pad = 0
+    # else:
+    y_pad = pad_shape[0]
+    y_min_pad = int(y_pad / 2)
+    y_max_pad = y_pad - y_min_pad
+
+    # if width % pad_size == 0:
+    #     x_min_pad = 0
+    #     x_max_pad = 0
+    # else:
+    x_pad = pad_shape[1]
+    x_min_pad = int(x_pad / 2)
+    x_max_pad = x_pad - x_min_pad
+
+    # img = cv2.copyMakeBorder(img, y_min_pad, y_max_pad, x_min_pad, x_max_pad, cv2.BORDER_REFLECT_101)
+    img = cv2.copyMakeBorder(img, y_min_pad, y_max_pad, x_min_pad, x_max_pad, cv2.BORDER_CONSTANT, value=0)
+
+    return img, (x_min_pad, y_min_pad, x_max_pad, y_max_pad)
+
+def unpad(img, pads):
+    """
+    img: numpy array of the shape (height, width)
+    pads: (x_min_pad, y_min_pad, x_max_pad, y_max_pad)
+    @return padded image
+    """
+    (x_min_pad, y_min_pad, x_max_pad, y_max_pad) = pads
+    height, width = img.shape[:2]
+
+    return img[y_min_pad:height - y_max_pad, x_min_pad:width - x_max_pad]
+
+def read_img_opencv(img_path, mask=False):
+    img = cv2.imread(img_path)
+    if not mask:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img

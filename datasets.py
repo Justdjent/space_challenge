@@ -96,7 +96,7 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
 
             for ind, filename in train_batch.iterrows():
                 if filename['manual'] == 1:
-                    img_path = os.path.join(img_man_dir, filename['folder'], 'jpegs')
+                    img_path = os.path.join(img_man_dir, filename['folder'], 'jpegs_fine')
                     # mask_path = os.path.join(img_man_dir)
                 else:
                     img_path = os.path.join(img_auto_dir, filename['folder'], 'rgg_train_imgs')
@@ -125,7 +125,7 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
                 nadirs.append(nadir)
                 tangents.append(tangent)
             batch_x = np.array(batch_x, np.float32)
-            batch_x, masks = mask_function.mask_pred(batch_x, train_batch, range(batch_size), img_man_dir,img_auto_dir , aug)
+            batch_x, masks = mask_function.mask_pred(batch_x, train_batch, range(batch_size), img_man_dir, img_auto_dir , aug)
             weights = np.array(weights)
             nadirs = np.array(nadirs)
             tangents = np.array(tangents)

@@ -21,12 +21,14 @@ from ddtn.transformers.transformer_util import get_transformer_init_weights
 from ddtn.transformers.transformer_util import get_transformer_dim
 from keras import backend as K
 
+from params import args
+
 def my_init(shape, dtype=None):
-    weights = get_transformer_init_weights(50, transformer_name='affine')
+    weights = get_transformer_init_weights(50, transformer_name=args.transformer_type)
     return weights[0]
 
 def my_init_bias(shape, dtype=None):
-    weights = get_transformer_init_weights(50, transformer_name='affine')
+    weights = get_transformer_init_weights(50, transformer_name=args.transformer_type)
     return weights[1]
 
 #model.add(Dense(64, kernel_initializer=my_init))

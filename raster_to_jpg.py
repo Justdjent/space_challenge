@@ -11,15 +11,16 @@ from tqdm import tqdm
 
 def create_jpg_from_pan_sharpen(raster_path, dest_path, threshold=3000):
     with rasterio.open(raster_path, "r") as dataset:
-        img = np.floor_divide(dataset.read(),
-                                       threshold/255).astype('uint8')
+        img = dataset.read()
         img = raster_cv(img)
+        # np.clip(img, None, threshold, out=img)
+        img = np.floor_divide(img, threshold/255).astype('uint8')
         cv2.imwrite(dest_path, img)
 
 
 def raster_cv(res):
     if res.shape[0] > 1:
-        cv_res = np.zeros((res.shape[1], res.shape[2], res.shape[0]))
+        cv_res = np.zeros((res.shape[1], res.shape[2], 3))
         cv_res[:, :, 0] = res[0]
         cv_res[:, :, 1] = res[1]
         cv_res[:, :, 2] = res[2]
@@ -62,6 +63,7 @@ def jpegs_from_rasters(im_src_dir, mask_dest_dir,
 
 if __name__ == '__main__':
     root_fldr = "data/test/SpaceNet-Off-Nadir_Test_Public"
+    # root_fldr = "/mnt/storage_4tb/ymi/spacenet/data/train"
     fldrs = []
     for i in os.listdir(root_fldr):
         if i.startswith('Atlanta') and os.path.isdir(os.path.join(root_fldr, i)):

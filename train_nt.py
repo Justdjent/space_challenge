@@ -11,6 +11,7 @@ from losses import make_loss, dice_coef_clipped, dice_coef, dice_coef_border
 from models import make_model
 from params import args
 from utils import freeze_model, ThreadsafeIter
+from CosmiQ_SN4_Baseline.cosmiq_sn4_baseline.metrics import f1_score
 
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
@@ -45,7 +46,7 @@ def main():
 
     best_model_file =\
         '{}/{}{}loss-{}-fold_{}-{}{:.6f}'.format(args.models_dir, args.network, formatted_net_alias, args.loss_function, args.fold, args.input_width, args.learning_rate) +\
-        '-{epoch:d}-{val_prediction_loss:0.7f}-{val_prediction_dice_coef:0.7f}-{val_prediction_dice_coef_clipped:0.7f}-{val_nadir_output_acc:0.7f}-{val_tangent_output_acc:0.7f}.h5'
+        '-{epoch:d}-{val_prediction_loss:0.7f}-{val_prediction_dice_coef:0.7f}-{val_prediction_f1_score:0.7f}-{val_nadir_output_acc:0.7f}-{val_tangent_output_acc:0.7f}.h5'
     if args.edges:
         ch = 3
     else:
@@ -68,7 +69,7 @@ def main():
 
     model.compile(loss=[make_loss(args.loss_function), 'categorical_crossentropy', 'categorical_crossentropy'],
                   optimizer=optimizer, loss_weights=[1, 1, 1],
-                  metrics={'prediction': [dice_coef_border, dice_coef, binary_crossentropy, dice_coef_clipped],
+                  metrics={'prediction': [dice_coef_border, dice_coef, binary_crossentropy, dice_coef_clipped, f1_score],
                            'nadir_output': 'accuracy',
                            'tangent_output': 'accuracy'})
 
@@ -116,15 +117,16 @@ def main():
 
     best_model = ModelCheckpoint(best_model_file, monitor='val_prediction_dice_coef',
                                                   verbose=1,
-                                                  save_best_only=True,
+                                                  save_best_only=False,
                                                   save_weights_only=True,
                                                   mode='max')
 
     callbacks = [best_model,
-                 EarlyStopping(patience=45, verbose=10),
+                 # EarlyStopping(patience=45, verbose=10),
                  TensorBoard(log_dir='./logs', histogram_freq=0, write_graph=True, write_images=True),
-                 ReduceLROnPlateau(monitor='val_prediction_dice_coef', mode='max', factor=0.2, patience=5, min_lr=0.00001,
-                                   verbose=1)]
+                 ]
+                 # ReduceLROnPlateau(monitor='val_prediction_dice_coef', mode='max', factor=0.2, patience=5, min_lr=0.00001,
+                 #                   verbose=1)]
     if args.clr is not None:
         clr_params = args.clr.split(',')
         base_lr = float(clr_params[0])
