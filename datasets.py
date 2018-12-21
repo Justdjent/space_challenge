@@ -95,12 +95,8 @@ def build_batch_generator(filenames, img_man_dir=None, img_auto_dir=None, batch_
             train_batch = filenames[start:end]
 
             for ind, filename in train_batch.iterrows():
-                if filename['manual'] == 1:
-                    img_path = os.path.join(img_man_dir, filename['folder'], 'jpegs_fine')
-                    # mask_path = os.path.join(img_man_dir)
-                else:
-                    img_path = os.path.join(img_auto_dir, filename['folder'], 'rgg_train_imgs')
-                    # mask_path = os.path.join(img_auto_dir)
+                img_path = os.path.join(img_man_dir, filename['folder'], 'jpegs')
+                # mask_path = os.path.join(img_auto_dir)
                 # img = imread(os.path.join(img_dir, filename))
                 # img = img_to_array(
                 #     load_img(os.path.join(img_dir, filename), grayscale=False, target_size=(out_size[0], out_size[1])))

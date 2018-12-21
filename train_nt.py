@@ -33,7 +33,7 @@ def main():
     # auto_val_data_dir = os.path.join(args.auto_dataset_dir, args.val_data_dir_name)
     # man_mask
     config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 1
+    config.gpu_options.per_process_gpu_memory_fraction = 0.1
     set_session(tf.Session(config=config))
     # mask_dir = 'data/train/masks_fail'
     # val_mask_dir = 'data/val/masks'
@@ -51,7 +51,7 @@ def main():
         ch = 3
     else:
         ch = 3
-    #model = make_model((None, None, args.stacked_channels + ch))
+    # model = make_model((None, None, args.stacked_channels + ch))
     model = make_model((args.input_height, args.input_width, args.stacked_channels + ch))
 
     freeze_model(model, args.freeze_till_layer)
@@ -68,7 +68,7 @@ def main():
         model.summary()
 
     model.compile(loss=[make_loss(args.loss_function), 'categorical_crossentropy', 'categorical_crossentropy'],
-                  optimizer=optimizer, loss_weights=[1, 1, 1],
+                  optimizer=optimizer, loss_weights=[1, 0.5, 0.11],
                   metrics={'prediction': [dice_coef_border, dice_coef, binary_crossentropy, dice_coef_clipped, f1_score],
                            'nadir_output': 'accuracy',
                            'tangent_output': 'accuracy'})

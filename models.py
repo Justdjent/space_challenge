@@ -29,6 +29,12 @@ from resnet50_fixed import ResNet50, conv_block, identity_block
 from params import args
 from sel_models.unets import (create_pyramid_features, conv_relu, prediction_fpn_block, conv_bn_relu, decoder_block_no_bn)
 
+import tensorflow as tf
+from keras.backend.tensorflow_backend import set_session
+# config = tf.ConfigProto()
+# config.gpu_options.per_process_gpu_memory_fraction = 0.1
+# set_session(tf.Session(config=config))
+
 def conv_block_simple(prevlayer, filters, prefix, strides=(1, 1)):
     conv = Conv2D(filters, (3, 3), padding="same", kernel_initializer="he_normal", strides=strides, name=prefix + "_conv")(prevlayer)
     conv = BatchNormalization(name=prefix + "_bn")(conv)
@@ -41,6 +47,21 @@ def conv_block_simple_no_bn(prevlayer, filters, prefix, strides=(1, 1)):
     conv = Activation('relu', name=prefix + "_activation")(conv)
     return conv
 
+def transformation_branch(weights, prevlayer, prefix):
+    round_out = Round()(weights)
+    transformed_image_1 = transformer_block(prevlayer)
+    transformed_image_2 = transformer_block(prevlayer)
+    transformed_image_3 = transformer_block(prevlayer)
+
+    round_out_1 = Lambda(lambda x: x[:, 0])(round_out)
+    round_out_2 = Lambda(lambda x: x[:, 1])(round_out)
+    round_out_3 = Lambda(lambda x: x[:, 2])(round_out)
+    transformed_image_1 = Multiply(name=prefix + "_mul1")([round_out_1, transformed_image_1])
+    transformed_image_2 = Multiply(name=prefix + "_mul2")([round_out_2, transformed_image_2])
+    transformed_image_3 = Multiply(name=prefix + "_mul3")([round_out_3, transformed_image_3])
+
+    x = Add(name=prefix + "add")([transformed_image_1, transformed_image_2, transformed_image_3])
+    return x
 
 def classification_branch(prevlayer, prefix, out_number):
 
@@ -48,6 +69,11 @@ def classification_branch(prevlayer, prefix, out_number):
     #conv2 = conv_block_simple(conv1, 192, prefix + 'conv2')
     # conv3 = Conv2D(10, (1, 1), padding="same", kernel_initializer="he_normal", activation='relu',
     #                strides=(3, 3), name=prefix + "_conv")(conv1)
+    # x = BatchNormalization(axis=1, name=prefix + 'bn_conv1')(prevlayer)
+    if K.image_data_format() == 'channels_last':
+        bn_axis = 3
+    else:
+        bn_axis = 1
     x = BatchNormalization(axis=1, name=prefix + 'bn_conv1')(prevlayer)
     x = Activation('relu')(x)
     x = MaxPooling2D((3, 3), strides=(2, 2), padding="same")(x)
@@ -68,7 +94,7 @@ def classification_branch(prevlayer, prefix, out_number):
     return result
 
 
-def transformation_branch(weights, prevlayer, prefix):
+def transformation_branch_3(weights, prevlayer, prefix):
     round_out = Round()(weights)
     transformed_image_1 = transformer_block(prevlayer)
     transformed_image_2 = transformer_block(prevlayer)
@@ -81,23 +107,31 @@ def transformation_branch(weights, prevlayer, prefix):
     transformed_image_2 = Multiply(name=prefix + "_mul2")([round_out_2, transformed_image_2])
     transformed_image_3 = Multiply(name=prefix + "_mul3")([round_out_3, transformed_image_3])
 
-    # transformed_image_1 = transformed_image_1 * round_out_1
-    # transformed_image_2 = transformed_image_2 * round_out_2
-    # transformed_image_3 = transformed_image_3 * round_out_3
-    # transformed_image_1 = multiply([round_out[:, 0], transformed_image_1], name=prefix + "_mul1")
-    # transformed_image_2 = multiply([round_out[:, 1], transformed_image_2], name=prefix + "_mul2")
-    # transformed_image_3 = multiply([round_out[:, 2], transformed_image_3], name=prefix + "_mul3")
-    # transformed_image_1 = Lambda(lambda x: multiply([x, transformed_image_1], name=prefix + "_mul1"))(round_out[:, 0])
-    # transformed_image_2 = Lambda(lambda x: multiply([x, transformed_image_2], name=prefix + "_mul1"))(round_out[:, 1])
-    # transformed_image_3 = Lambda(lambda x: multiply([x, transformed_image_3], name=prefix + "_mul1"))(round_out[:, 2])
-    # transformed_image_1 = Merge(mode='mul')([round_out[:, 0], transformed_image_1])
-    # transformed_image_2 = Merge(mode='mul')([round_out[:, 1], transformed_image_2])
-    # transformed_image_3 = Merge(mode='mul')([round_out[:, 2], transformed_image_3])
-    #K.dot(A, B)
-    # transformed_image_1 = Lambda(lambda x: x * round_out[:, 0][0])(transformed_image_1)
-    # transformed_image_2 = Lambda(lambda x: x * round_out[:, 1][0])(transformed_image_2)
-    # transformed_image_3 = Lambda(lambda x: x * round_out[:, 2][0])(transformed_image_3)
     x = Add(name=prefix + "add")([transformed_image_1, transformed_image_2, transformed_image_3])
+    return x
+
+def transformation_branch_5(weights, prevlayer, prefix):
+    round_out = Round()(weights)
+    transformed_image_1 = transformer_block(prevlayer)
+    transformed_image_2 = transformer_block(prevlayer)
+    transformed_image_3 = transformer_block(prevlayer)
+    transformed_image_4 = transformer_block(prevlayer)
+    transformed_image_5 = transformer_block(prevlayer)
+
+
+    round_out_1 = Lambda(lambda x: x[:, 0])(round_out)
+    round_out_2 = Lambda(lambda x: x[:, 1])(round_out)
+    round_out_3 = Lambda(lambda x: x[:, 2])(round_out)
+    round_out_4 = Lambda(lambda x: x[:, 3])(round_out)
+    round_out_5 = Lambda(lambda x: x[:, 4])(round_out)
+    transformed_image_1 = Multiply(name=prefix + "_mul1")([round_out_1, transformed_image_1])
+    transformed_image_2 = Multiply(name=prefix + "_mul2")([round_out_2, transformed_image_2])
+    transformed_image_3 = Multiply(name=prefix + "_mul3")([round_out_3, transformed_image_3])
+    transformed_image_4 = Multiply(name=prefix + "_mul4")([round_out_4, transformed_image_4])
+    transformed_image_5 = Multiply(name=prefix + "_mul5")([round_out_5, transformed_image_5])
+
+    x = Add(name=prefix + "add")([transformed_image_1, transformed_image_2,
+                                  transformed_image_3, transformed_image_4, transformed_image_5])
     return x
 
 
@@ -317,6 +351,68 @@ def get_csse_unet_resnet(input_shape):
     return model
 
 
+# def get_csse_resnet_nt(input_shape):
+#     resnet_base = ResNet50(input_shape=input_shape, include_top=False)
+#
+#     if args.show_summary:
+#         resnet_base.summary()
+#
+#     for l in resnet_base.layers:
+#         l.trainable = True
+#     conv1 = resnet_base.get_layer("activation_1").output
+#     conv1 = csse_block(conv1, "csse_1")
+#     nadir_out = classification_branch(conv1, "nadir", 3)
+#     tangent_out = classification_branch(conv1, "tangent", 3)
+#     conv1 = transformation_branch_3(nadir_out, conv1, "nadir_transform")
+#     conv1 = transformation_branch_3(tangent_out, conv1, "tangent_transform")
+#     # conv1 = transformer_block(conv1)
+#
+#     resnet_base.get_layer("max_pooling2d_1")(conv1)
+#     conv2 = resnet_base.get_layer("activation_10").output
+#     conv2 = csse_block(conv2, "csse_10")
+#     resnet_base.get_layer("res3a_branch2a")(conv2)
+#     conv3 = resnet_base.get_layer("activation_22").output
+#     conv3 = csse_block(conv3, "csse_22")
+#     resnet_base.get_layer("res4a_branch2a")(conv3)
+#     conv4 = resnet_base.get_layer("activation_40").output
+#     conv4 = csse_block(conv4, "csse_40")
+#     resnet_base.get_layer("res5a_branch2a")(conv4)
+#     conv5 = resnet_base.get_layer("activation_49").output
+#     conv5 = csse_block(conv5, "csse_49")
+#     resnet_base.get_layer("avg_pool")(conv5)
+#
+#     up6 = concatenate([UpSampling2D()(conv5), conv4], axis=-1)
+#     conv6 = conv_block_simple(up6, 256, "conv6_1")
+#     conv6 = conv_block_simple(conv6, 256, "conv6_2")
+#     conv6 = csse_block(conv6, "csse_6")
+#
+#     up7 = concatenate([UpSampling2D()(conv6), conv3], axis=-1)
+#     conv7 = conv_block_simple(up7, 192, "conv7_1")
+#     conv7 = conv_block_simple(conv7, 192, "conv7_2")
+#     conv7 = csse_block(conv7, "csse_7")
+#
+#     up8 = concatenate([UpSampling2D()(conv7), conv2], axis=-1)
+#     conv8 = conv_block_simple(up8, 128, "conv8_1")
+#     conv8 = conv_block_simple(conv8, 128, "conv8_2")
+#     conv8 = csse_block(conv8, "csse_8")
+#
+#     up9 = concatenate([UpSampling2D()(conv8), conv1], axis=-1)
+#     conv9 = conv_block_simple(up9, 64, "conv9_1")
+#     conv9 = conv_block_simple(conv9, 64, "conv9_2")
+#     conv9 = csse_block(conv9, "csse_9")
+#
+#     vgg = VGG16(input_shape=input_shape, input_tensor=resnet_base.input, include_top=False)
+#     for l in vgg.layers:
+#         l.trainable = False
+#     vgg_first_conv = vgg.get_layer("block1_conv2").output
+#     up10 = concatenate([UpSampling2D()(conv9), resnet_base.input, vgg_first_conv], axis=-1)
+#     conv10 = conv_block_simple(up10, 32, "conv10_1")
+#     conv10 = conv_block_simple(conv10, 32, "conv10_2")
+#     conv10 = csse_block(conv10, "csse_o10")
+#     conv10 = SpatialDropout2D(0.2)(conv10)
+#     x = Conv2D(1, (1, 1), activation="sigmoid", name="prediction")(conv10)
+#     model = Model(resnet_base.input, [x, nadir_out, tangent_out])
+#     return model
 def get_csse_resnet_nt(input_shape):
     resnet_base = ResNet50(input_shape=input_shape, include_top=False)
 
@@ -331,6 +427,69 @@ def get_csse_resnet_nt(input_shape):
     tangent_out = classification_branch(conv1, "tangent", 3)
     conv1 = transformation_branch(nadir_out, conv1, "nadir_transform")
     conv1 = transformation_branch(tangent_out, conv1, "tangent_transform")
+    # conv1 = transformer_block(conv1)
+
+    resnet_base.get_layer("max_pooling2d_1")(conv1)
+    conv2 = resnet_base.get_layer("activation_10").output
+    conv2 = csse_block(conv2, "csse_10")
+    resnet_base.get_layer("res3a_branch2a")(conv2)
+    conv3 = resnet_base.get_layer("activation_22").output
+    conv3 = csse_block(conv3, "csse_22")
+    resnet_base.get_layer("res4a_branch2a")(conv3)
+    conv4 = resnet_base.get_layer("activation_40").output
+    conv4 = csse_block(conv4, "csse_40")
+    resnet_base.get_layer("res5a_branch2a")(conv4)
+    conv5 = resnet_base.get_layer("activation_49").output
+    conv5 = csse_block(conv5, "csse_49")
+    resnet_base.get_layer("avg_pool")(conv5)
+
+    up6 = concatenate([UpSampling2D()(conv5), conv4], axis=-1)
+    conv6 = conv_block_simple(up6, 256, "conv6_1")
+    conv6 = conv_block_simple(conv6, 256, "conv6_2")
+    conv6 = csse_block(conv6, "csse_6")
+
+    up7 = concatenate([UpSampling2D()(conv6), conv3], axis=-1)
+    conv7 = conv_block_simple(up7, 192, "conv7_1")
+    conv7 = conv_block_simple(conv7, 192, "conv7_2")
+    conv7 = csse_block(conv7, "csse_7")
+
+    up8 = concatenate([UpSampling2D()(conv7), conv2], axis=-1)
+    conv8 = conv_block_simple(up8, 128, "conv8_1")
+    conv8 = conv_block_simple(conv8, 128, "conv8_2")
+    conv8 = csse_block(conv8, "csse_8")
+
+    up9 = concatenate([UpSampling2D()(conv8), conv1], axis=-1)
+    conv9 = conv_block_simple(up9, 64, "conv9_1")
+    conv9 = conv_block_simple(conv9, 64, "conv9_2")
+    conv9 = csse_block(conv9, "csse_9")
+
+    vgg = VGG16(input_shape=input_shape, input_tensor=resnet_base.input, include_top=False)
+    for l in vgg.layers:
+        l.trainable = False
+    vgg_first_conv = vgg.get_layer("block1_conv2").output
+    up10 = concatenate([UpSampling2D()(conv9), resnet_base.input, vgg_first_conv], axis=-1)
+    conv10 = conv_block_simple(up10, 32, "conv10_1")
+    conv10 = conv_block_simple(conv10, 32, "conv10_2")
+    conv10 = csse_block(conv10, "csse_o10")
+    conv10 = SpatialDropout2D(0.2)(conv10)
+    x = Conv2D(1, (1, 1), activation="sigmoid", name="prediction")(conv10)
+    model = Model(resnet_base.input, [x, nadir_out, tangent_out])
+    return model
+
+def get_csse_resnet_nt_5(input_shape):
+    resnet_base = ResNet50(input_shape=input_shape, include_top=False)
+
+    if args.show_summary:
+        resnet_base.summary()
+
+    for l in resnet_base.layers:
+        l.trainable = True
+    conv1 = resnet_base.get_layer("activation_1").output
+    conv1 = csse_block(conv1, "csse_1")
+    nadir_out = classification_branch(conv1, "nadir", 5)
+    tangent_out = classification_branch(conv1, "tangent", 3)
+    conv1 = transformation_branch_5(nadir_out, conv1, "nadir_transform")
+    conv1 = transformation_branch_3(tangent_out, conv1, "tangent_transform")
     # conv1 = transformer_block(conv1)
 
     resnet_base.get_layer("max_pooling2d_1")(conv1)
@@ -425,6 +584,107 @@ def csse_resnet50_fpn(input_shape, channels=1, activation="sigmoid"):
     x = Conv2D(channels, (1, 1), activation=activation, name="mask")(x)
     model = Model(resnet_base.input, x)
     return model
+
+
+def csse_resnet50_fpn_nt(input_shape, channels=1, activation="sigmoid"):
+    # img_input = Input(input_shape)
+    # resnet_base = ResNet50(img_input, include_top=True)
+    # resnet_base.load_weights(download_resnet_imagenet("resnet50"))
+    resnet_base = ResNet50(input_shape=input_shape, include_top=False)
+
+    if args.show_summary:
+        resnet_base.summary()
+
+    for l in resnet_base.layers:
+        l.trainable = True
+
+    conv1 = resnet_base.get_layer("activation_1").output
+    conv1 = csse_block(conv1, "csse_1")
+    nadir_out = classification_branch(conv1, "nadir", 3)
+    tangent_out = classification_branch(conv1, "tangent", 3)
+    conv1 = transformation_branch_3(nadir_out, conv1, "nadir_transform")
+    conv1 = transformation_branch_3(tangent_out, conv1, "tangent_transform")
+    resnet_base.get_layer("max_pooling2d_1")(conv1)
+    conv2 = resnet_base.get_layer("activation_10").output
+    conv2 = csse_block(conv2, "csse_10")
+    resnet_base.get_layer("res3a_branch2a")(conv2)
+    conv3 = resnet_base.get_layer("activation_22").output
+    conv3 = csse_block(conv3, "csse_22")
+    resnet_base.get_layer("res4a_branch2a")(conv3)
+    conv4 = resnet_base.get_layer("activation_40").output
+    conv4 = csse_block(conv4, "csse_40")
+    resnet_base.get_layer("res5a_branch2a")(conv4)
+    conv5 = resnet_base.get_layer("activation_49").output
+    conv5 = csse_block(conv5, "csse_49")
+    resnet_base.get_layer("avg_pool")(conv5)
+    P1, P2, P3, P4, P5 = create_pyramid_features(conv1, conv2, conv3, conv4, conv5)
+    x = concatenate(
+        [
+            csse_block(prediction_fpn_block(P5, "P5", (8, 8)), "csse_P5"),
+            csse_block(prediction_fpn_block(P4, "P4", (4, 4)), "csse_P4"),
+            csse_block(prediction_fpn_block(P3, "P3", (2, 2)), "csse_P3"),
+            csse_block(prediction_fpn_block(P2, "P2"), "csse_P2"),
+        ]
+    )
+    x = conv_bn_relu(x, 256, 3, (1, 1), name="aggregation")
+    x = decoder_block_no_bn(x, 128, conv1, 'up4')
+    x = UpSampling2D()(x)
+    x = conv_relu(x, 64, 3, (1, 1), name="up5_conv1")
+    x = conv_relu(x, 64, 3, (1, 1), name="up5_conv2")
+    x = Conv2D(channels, (1, 1), activation=activation, name="prediction")(x)
+    model = Model(resnet_base.input, [x, nadir_out, tangent_out])
+    return model
+
+
+def csse_resnet50_fpn_nt_5(input_shape, channels=1, activation="sigmoid"):
+    # img_input = Input(input_shape)
+    # resnet_base = ResNet50(img_input, include_top=True)
+    # resnet_base.load_weights(download_resnet_imagenet("resnet50"))
+    resnet_base = ResNet50(input_shape=input_shape, include_top=False)
+
+    if args.show_summary:
+        resnet_base.summary()
+
+    for l in resnet_base.layers:
+        l.trainable = True
+
+    conv1 = resnet_base.get_layer("activation_1").output
+    conv1 = csse_block(conv1, "csse_1")
+    nadir_out = classification_branch(conv1, "nadir", 5)
+    tangent_out = classification_branch(conv1, "tangent", 3)
+    conv1 = transformation_branch_5(nadir_out, conv1, "nadir_transform")
+    conv1 = transformation_branch_3(tangent_out, conv1, "tangent_transform")
+    resnet_base.get_layer("max_pooling2d_1")(conv1)
+    conv2 = resnet_base.get_layer("activation_10").output
+    conv2 = csse_block(conv2, "csse_10")
+    resnet_base.get_layer("res3a_branch2a")(conv2)
+    conv3 = resnet_base.get_layer("activation_22").output
+    conv3 = csse_block(conv3, "csse_22")
+    resnet_base.get_layer("res4a_branch2a")(conv3)
+    conv4 = resnet_base.get_layer("activation_40").output
+    conv4 = csse_block(conv4, "csse_40")
+    resnet_base.get_layer("res5a_branch2a")(conv4)
+    conv5 = resnet_base.get_layer("activation_49").output
+    conv5 = csse_block(conv5, "csse_49")
+    resnet_base.get_layer("avg_pool")(conv5)
+    P1, P2, P3, P4, P5 = create_pyramid_features(conv1, conv2, conv3, conv4, conv5)
+    x = concatenate(
+        [
+            csse_block(prediction_fpn_block(P5, "P5", (8, 8)), "csse_P5"),
+            csse_block(prediction_fpn_block(P4, "P4", (4, 4)), "csse_P4"),
+            csse_block(prediction_fpn_block(P3, "P3", (2, 2)), "csse_P3"),
+            csse_block(prediction_fpn_block(P2, "P2"), "csse_P2"),
+        ]
+    )
+    x = conv_bn_relu(x, 256, 3, (1, 1), name="aggregation")
+    x = decoder_block_no_bn(x, 128, conv1, 'up4')
+    x = UpSampling2D()(x)
+    x = conv_relu(x, 64, 3, (1, 1), name="up5_conv1")
+    x = conv_relu(x, 64, 3, (1, 1), name="up5_conv2")
+    x = Conv2D(channels, (1, 1), activation=activation, name="prediction")(x)
+    model = Model(resnet_base.input, [x, nadir_out, tangent_out])
+    return model
+
 
 def resnet50_fpn(input_shape, channels=1, activation="sigmoid"):
     # img_input = Input(input_shape)
@@ -816,5 +1076,9 @@ def make_model(input_shape):
         return resnet50_fpn(input_shape, channels=1, activation="sigmoid")
     elif network == 'csse_resnet50_fpn':
         return csse_resnet50_fpn(input_shape, channels=1, activation="sigmoid")
+    elif network == 'csse_resnet50_fpn_nt':
+        return csse_resnet50_fpn_nt(input_shape, channels=1, activation="sigmoid")
+    elif network == 'csse_resnet50_fpn_nt_5':
+        return csse_resnet50_fpn_nt_5(input_shape, channels=1, activation="sigmoid")
     else:
         raise ValueError("Unknown network")
