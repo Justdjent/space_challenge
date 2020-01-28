@@ -34,6 +34,6 @@ urllib3==1.22
 nudged==0.3.1
 opencv-contrib-python==3.4.1.15
 firebase-admin==2.10.0
-tensorflow==1.8.0
+tensorflow==1.15.2
 tensorlayer==1.8.5
 keras==2.0.8
