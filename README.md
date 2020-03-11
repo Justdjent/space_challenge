@@ -63,3 +63,4 @@ Folder notebooks contains notebooks for visualization and preparing the data.
 
 You can find visualization demo in TFR_visualizaer.ipynb
 To visualize .csv dataframe run Data_analyzer.ipynb. Ther you can plot the score distribution.# space_challenge
+# spacenet_6_sar
