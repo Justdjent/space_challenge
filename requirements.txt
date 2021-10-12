@@ -13,7 +13,7 @@ laspy==1.5.1
 matplotlib==2.2.2 
 networkx==2.1 
 numpy==1.14.2 
-opencv-python==3.4.0.12 
+opencv-python==4.2.0.32 
 Pillow==5.0.0 
 pygdal>=1.11.3,<1.11.3.999
 pyparsing==2.2.0 
